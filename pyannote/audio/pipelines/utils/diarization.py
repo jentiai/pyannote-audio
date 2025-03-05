@@ -37,9 +37,9 @@ class SpeakerDiarizationMixin:
 
     @staticmethod
     def set_num_speakers(
-        num_speakers: Optional[int] = None,
-        min_speakers: Optional[int] = None,
-        max_speakers: Optional[int] = None,
+            num_speakers: Optional[int] = None,
+            min_speakers: Optional[int] = None,
+            max_speakers: Optional[int] = None,
     ):
         """Validate number of speakers
 
@@ -75,9 +75,9 @@ class SpeakerDiarizationMixin:
 
     @staticmethod
     def optimal_mapping(
-        reference: Union[Mapping, Annotation],
-        hypothesis: Annotation,
-        return_mapping: bool = False,
+            reference: Union[Mapping, Annotation],
+            hypothesis: Annotation,
+            return_mapping: bool = False,
     ) -> Union[Annotation, Tuple[Annotation, Dict[Label, Label]]]:
         """Find the optimal bijective mapping between reference and hypothesis labels
 
@@ -120,9 +120,9 @@ class SpeakerDiarizationMixin:
     # TODO: get rid of warm-up parameter (trimming should be applied before calling speaker_count)
     @staticmethod
     def speaker_count(
-        binarized_segmentations: SlidingWindowFeature,
-        frames: SlidingWindow,
-        warm_up: Tuple[float, float] = (0.1, 0.1),
+            binarized_segmentations: SlidingWindowFeature,
+            frames: SlidingWindow,
+            warm_up: Tuple[float, float] = (0.1, 0.1),
     ) -> SlidingWindowFeature:
         """Estimate frame-level number of instantaneous speakers
 
@@ -158,9 +158,9 @@ class SpeakerDiarizationMixin:
 
     @staticmethod
     def to_annotation(
-        discrete_diarization: SlidingWindowFeature,
-        min_duration_on: float = 0.0,
-        min_duration_off: float = 0.0,
+            discrete_diarization: SlidingWindowFeature,
+            min_duration_on: float = 0.0,
+            min_duration_off: float = 0.0,
     ) -> Annotation:
         """
 
@@ -191,8 +191,9 @@ class SpeakerDiarizationMixin:
 
     @staticmethod
     def to_diarization(
-        segmentations: SlidingWindowFeature,
-        count: SlidingWindowFeature,
+            segmentations: SlidingWindowFeature,
+            count: SlidingWindowFeature,
+            return_activations: bool = False,
     ) -> SlidingWindowFeature:
         """Build diarization out of preprocessed segmentation and precomputed speaker count
 
@@ -202,11 +203,13 @@ class SpeakerDiarizationMixin:
             (num_chunks, num_frames, num_speakers)-shaped segmentations
         count : SlidingWindow_feature
             (num_frames, 1)-shaped speaker count
+        return_activations : bool, optional
 
         Returns
         -------
         discrete_diarization : SlidingWindowFeature
             Discrete (0s and 1s) diarization.
+        activations : SlidingWindowFeature if return_activations is True
         """
 
         # TODO: investigate alternative aggregation
@@ -215,7 +218,7 @@ class SpeakerDiarizationMixin:
             count.sliding_window,
             hamming=False,
             missing=0.0,
-            skip_average=True,
+            skip_average=False,  # Modified by qutrino
         )
         # shape is (num_frames, num_speakers)
 
@@ -237,7 +240,10 @@ class SpeakerDiarizationMixin:
             for i in range(c.item()):
                 binary[t, speakers[i]] = 1.0
 
-        return SlidingWindowFeature(binary, activations.sliding_window)
+        if return_activations:
+            return SlidingWindowFeature(binary, activations.sliding_window), activations
+        else:
+            return SlidingWindowFeature(binary, activations.sliding_window)
 
     def classes(self):
         speaker = 0
