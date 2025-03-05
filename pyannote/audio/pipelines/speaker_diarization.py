@@ -113,16 +113,16 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
     """
 
     def __init__(
-        self,
-        segmentation: PipelineModel = "pyannote/segmentation@2022.07",
-        segmentation_step: float = 0.1,
-        embedding: PipelineModel = "speechbrain/spkrec-ecapa-voxceleb@5c0be3875fda05e81f3c004ed8c7c06be308de1e",
-        embedding_exclude_overlap: bool = False,
-        clustering: str = "AgglomerativeClustering",
-        embedding_batch_size: int = 1,
-        segmentation_batch_size: int = 1,
-        der_variant: Optional[dict] = None,
-        use_auth_token: Union[Text, None] = None,
+            self,
+            segmentation: PipelineModel = "pyannote/segmentation@2022.07",
+            segmentation_step: float = 0.1,
+            embedding: PipelineModel = "speechbrain/spkrec-ecapa-voxceleb@5c0be3875fda05e81f3c004ed8c7c06be308de1e",
+            embedding_exclude_overlap: bool = False,
+            clustering: str = "AgglomerativeClustering",
+            embedding_batch_size: int = 1,
+            segmentation_batch_size: int = 1,
+            der_variant: Optional[dict] = None,
+            use_auth_token: Union[Text, None] = None,
     ):
         super().__init__()
 
@@ -226,11 +226,11 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
         return segmentations
 
     def get_embeddings(
-        self,
-        file,
-        binary_segmentations: SlidingWindowFeature,
-        exclude_overlap: bool = False,
-        hook: Optional[Callable] = None,
+            self,
+            file,
+            binary_segmentations: SlidingWindowFeature,
+            exclude_overlap: bool = False,
+            hook: Optional[Callable] = None,
     ):
         """Extract embeddings for each (chunk, speaker) pair
 
@@ -260,8 +260,8 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
             # `powerset` mode
             cache = file.get("training_cache/embeddings", dict())
             if ("embeddings" in cache) and (
-                self._segmentation.model.specifications.powerset
-                or (cache["segmentation.threshold"] == self.segmentation.threshold)
+                    self._segmentation.model.specifications.powerset
+                    or (cache["segmentation.threshold"] == self.segmentation.threshold)
             ):
                 return cache["embeddings"]
 
@@ -279,7 +279,7 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
 
             # zero-out frames with overlapping speech
             clean_frames = 1.0 * (
-                np.sum(binary_segmentations.data, axis=2, keepdims=True) < 2
+                    np.sum(binary_segmentations.data, axis=2, keepdims=True) < 2
             )
             clean_segmentations = SlidingWindowFeature(
                 binary_segmentations.data * clean_frames,
@@ -294,7 +294,7 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
 
         def iter_waveform_and_mask():
             for (chunk, masks), (_, clean_masks) in zip(
-                binary_segmentations, clean_segmentations
+                    binary_segmentations, clean_segmentations
             ):
                 # chunk: Segment(t, t + duration)
                 # masks: (num_frames, local_num_speakers) np.ndarray
@@ -375,10 +375,11 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
         return embeddings
 
     def reconstruct(
-        self,
-        segmentations: SlidingWindowFeature,
-        hard_clusters: np.ndarray,
-        count: SlidingWindowFeature,
+            self,
+            segmentations: SlidingWindowFeature,
+            hard_clusters: np.ndarray,
+            count: SlidingWindowFeature,
+            return_activations: bool = False,
     ) -> SlidingWindowFeature:
         """Build final discrete diarization out of clustered segmentation
 
@@ -390,11 +391,13 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
             Output of clustering step.
         count : (total_num_frames, 1) SlidingWindowFeature
             Instantaneous number of active speakers.
+        return_activations : bool, optional
 
         Returns
         -------
         discrete_diarization : SlidingWindowFeature
             Discrete (0s and 1s) diarization.
+        activations : SlidingWindowFeature if return_activations is True
         """
 
         num_chunks, num_frames, local_num_speakers = segmentations.data.shape
@@ -405,7 +408,7 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
         )
 
         for c, (cluster, (chunk, segmentation)) in enumerate(
-            zip(hard_clusters, segmentations)
+                zip(hard_clusters, segmentations)
         ):
             # cluster is (local_num_speakers, )-shaped
             # segmentation is (num_frames, local_num_speakers)-shaped
@@ -422,16 +425,17 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
             clustered_segmentations, segmentations.sliding_window
         )
 
-        return self.to_diarization(clustered_segmentations, count)
+        return self.to_diarization(clustered_segmentations, count, return_activations=return_activations)
 
     def apply(
-        self,
-        file: AudioFile,
-        num_speakers: Optional[int] = None,
-        min_speakers: Optional[int] = None,
-        max_speakers: Optional[int] = None,
-        return_embeddings: bool = False,
-        hook: Optional[Callable] = None,
+            self,
+            file: AudioFile,
+            num_speakers: Optional[int] = None,
+            min_speakers: Optional[int] = None,
+            max_speakers: Optional[int] = None,
+            return_embeddings: bool = False,
+            hook: Optional[Callable] = None,
+            return_activations: bool = False,
     ) -> Annotation:
         """Apply speaker diarization
 
@@ -548,8 +552,8 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
         # (specifically, lower than `min_speakers`), since there could be too few embeddings
         # to make enough clusters with a given minimum cluster size.
         if (
-            num_different_speakers < min_speakers
-            or num_different_speakers > max_speakers
+                num_different_speakers < min_speakers
+                or num_different_speakers > max_speakers
         ):
             warnings.warn(
                 textwrap.dedent(
@@ -574,11 +578,23 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
         #   shape: (num_chunks, num_speakers)
 
         hard_clusters[inactive_speakers] = -2
-        discrete_diarization = self.reconstruct(
-            segmentations,
-            hard_clusters,
-            count,
-        )
+
+        if return_activations:
+            discrete_diarization, activations = self.reconstruct(
+                segmentations,
+                hard_clusters,
+                count,
+                return_activations=True,
+            )
+        else:
+            discrete_diarization = self.reconstruct(
+                segmentations,
+                hard_clusters,
+                count,
+                return_activations=False,
+            )
+            activations = None
+
         hook("discrete_diarization", discrete_diarization)
 
         # convert to continuous diarization
@@ -620,11 +636,17 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
         # speakers are not present in the reference)
 
         if not return_embeddings:
-            return diarization
+            if return_activations:
+                return diarization, activations
+            else:
+                return diarization
 
         # this can happen when we use OracleClustering
         if centroids is None:
-            return diarization, None
+            if return_activations:
+                return diarization, None, activations
+            else:
+                return diarization, None
 
         # The number of centroids may be smaller than the number of speakers
         # in the annotation. This can happen if the number of active speakers
@@ -643,7 +665,10 @@ class SpeakerDiarization(SpeakerDiarizationMixin, Pipeline):
             [inverse_mapping[label] for label in diarization.labels()]
         ]
 
-        return diarization, centroids
+        if return_activations:
+            return diarization, centroids, activations
+        else:
+            return diarization, centroids
 
     def get_metric(self) -> GreedyDiarizationErrorRate:
         return GreedyDiarizationErrorRate(**self.der_variant)
